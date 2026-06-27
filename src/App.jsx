@@ -200,6 +200,26 @@ function ReportPopup({ report, onConfirm }) {
   const minutesAgo = Math.floor((Date.now() - new Date(report.created_at).getTime()) / 60000);
   const timeLabel = minutesAgo < 60 ? `hace ${minutesAgo}m` : `hace ${Math.floor(minutesAgo / 60)}h`;
   const isResolved = report.status === 'resolved';
+  const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading] = useState(null);
+
+  const vote = async (voteType) => {
+    setLoading(voteType);
+    setFeedback(null);
+    const result = await onConfirm(report.id, voteType);
+    setLoading(null);
+    if (result?.error) {
+      setFeedback({ type: 'error', msg: result.error });
+    } else {
+      const msgs = {
+        on_my_way:    '¡Marcado en camino!',
+        still_active: 'Confirmado. Gracias.',
+        resolved:     `Voto registrado (${(report.resolved_votes || 0) + 1}/3 para resolver).`,
+        flag:         'Spam reportado.',
+      };
+      setFeedback({ type: 'success', msg: msgs[voteType] || 'Voto registrado.' });
+    }
+  };
 
   return (
     <div className="popup-content">
@@ -213,23 +233,47 @@ function ReportPopup({ report, onConfirm }) {
       <div className="popup-meta">
         {report.nickname || 'Anónimo'} · {timeLabel}
         {report.confirmations > 0 && ` · ${report.confirmations} confirmaciones`}
+        {report.resolved_votes > 0 && ` · ${report.resolved_votes}/3 para resolver`}
+        {report.flag_votes > 0 && ` · ${report.flag_votes}/3 spam`}
       </div>
+      {feedback && (
+        <div className={`popup-feedback popup-feedback-${feedback.type}`}>
+          {feedback.msg}
+        </div>
+      )}
       <div className="popup-actions">
         {!isResolved && (
           <>
-            <button className="vote-btn vote-onway" onClick={() => onConfirm(report.id, 'on_my_way')}>
-              Voy en camino
+            <button
+              className="vote-btn vote-onway"
+              onClick={() => vote('on_my_way')}
+              disabled={loading !== null}
+            >
+              {loading === 'on_my_way' ? '…' : 'Voy en camino'}
             </button>
-            <button className="vote-btn vote-active" onClick={() => onConfirm(report.id, 'still_active')}>
-              Sigue activo
+            <button
+              className="vote-btn vote-active"
+              onClick={() => vote('still_active')}
+              disabled={loading !== null}
+            >
+              {loading === 'still_active' ? '…' : 'Sigue activo'}
             </button>
-            <button className="vote-btn vote-resolved" onClick={() => onConfirm(report.id, 'resolved')}>
-              Ya fue atendido
+            <button
+              className="vote-btn vote-resolved"
+              onClick={() => vote('resolved')}
+              disabled={loading !== null}
+            >
+              {loading === 'resolved' ? '…' : `Ya fue atendido${report.resolved_votes > 0 ? ` (${report.resolved_votes}/3)` : ''}`}
             </button>
           </>
         )}
-        <button className="vote-btn vote-flag" onClick={() => onConfirm(report.id, 'flag')} title="Reportar como spam">
-          🚩 Spam
+        <button
+          className="vote-btn vote-flag"
+          onClick={() => vote('flag')}
+          disabled={loading !== null}
+          title="Reportar como spam"
+        >
+          {loading === 'flag' ? '…' : `🚩 Spam${report.flag_votes > 0 ? ` (${report.flag_votes}/3)` : ''}`}
         </button>
       </div>
     </div>
@@ -330,17 +374,18 @@ export default function App() {
 
   // ----- confirmar / votar -----
   const handleConfirm = async (reportId, voteType) => {
-    if (!online) return alert('Necesitas conexión para confirmar.');
+    if (!online) return { error: 'Necesitas conexión para confirmar.' };
     const { error } = await supabase.from('confirmations').insert([{
       report_id: reportId,
       device_hash: deviceHash,
       vote_type: voteType
     }]);
-    if (error && !error.message?.includes('duplicate')) {
-      alert('Error al confirmar.');
-    } else if (error?.message?.includes('duplicate')) {
-      alert('Ya votaste en este reporte.');
+    if (error) {
+      if (error.code === '23505') return { error: 'Ya votaste en este reporte.' };
+      return { error: 'Error al votar: ' + error.message };
     }
+    loadReports();
+    return { success: true };
   };
 
   // ----- filtrar -----
