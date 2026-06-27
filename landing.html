@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Manos VZLA · Mapa colaborativo de necesidades</title>
+  <meta name="description" content="Mapa colaborativo en vivo para coordinar ayuda tras los terremotos de Venezuela. Live collaborative map for Venezuela earthquake response." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Manos VZLA" />
+  <meta property="og:description" content="Mapa colaborativo de necesidades. Cualquiera reporta dónde hace falta ayuda. Cualquiera la ve." />
+  <meta property="og:type" content="website" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --text: #f5f5f5;
+      --text-dim: #a0a0a0;
+      --accent: #d4af37;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Toggle idioma */
+    .lang-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px;
+      display: flex;
+      gap: 4px;
+    }
+    .lang-toggle button {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .lang-toggle button.active {
+      background: var(--accent);
+      color: #0a0a0a;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 80px 24px 40px;
+      text-align: center;
+      background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 70%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.08), transparent 50%);
+      pointer-events: none;
+    }
+    .flag { font-size: 48px; margin-bottom: 24px; }
+    .hero h1 {
+      font-size: clamp(40px, 8vw, 72px);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f5f5f5 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero .tagline {
+      font-size: clamp(18px, 3vw, 24px);
+      color: var(--text-dim);
+      max-width: 620px;
+      margin-bottom: 40px;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cta {
+      padding: 16px 32px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 16px;
+      text-decoration: none;
+      transition: transform 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cta:active { transform: scale(0.96); }
+    .cta-primary { background: var(--accent); color: #0a0a0a; }
+    .cta-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+    .urgency-banner {
+      margin-top: 48px;
+      padding: 12px 24px;
+      background: rgba(220, 38, 38, 0.12);
+      border: 1px solid rgba(220, 38, 38, 0.4);
+      border-radius: 999px;
+      font-size: 14px;
+      color: #fecaca;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Secciones */
+    section { padding: 80px 24px; max-width: 960px; margin: 0 auto; }
+    section h2 {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+    section h2 + p {
+      color: var(--text-dim);
+      font-size: 18px;
+      max-width: 640px;
+      margin-bottom: 48px;
+    }
+
+    /* Cómo funciona */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+    }
+    .step-num {
+      position: absolute;
+      top: -16px;
+      left: 24px;
+      background: var(--accent);
+      color: #0a0a0a;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .step h3 { font-size: 18px; margin-bottom: 8px; margin-top: 8px; }
+    .step p { color: var(--text-dim); font-size: 14px; }
+
+    /* Categorías */
+    .cats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .cat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      padding: 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .cat-icon { font-size: 24px; }
+    .cat-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+    .cat-sub { font-size: 12px; color: var(--text-dim); }
+
+    /* Llamado voluntarios */
+    .volunteer {
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 20px;
+      padding: 48px 32px;
+      text-align: center;
+      margin: 0 24px;
+    }
+    .volunteer h2 { background: linear-gradient(135deg, var(--accent), #f5f5f5); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+    footer p { margin-bottom: 8px; }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* Idioma toggle */
+    [data-lang="en"] [lang="es"] { display: none; }
+    [data-lang="es"] [lang="en"] { display: none; }
+  </style>
+</head>
+<body data-lang="es">
+
+  <div class="lang-toggle" role="tablist">
+    <button id="btn-es" class="active" onclick="setLang('es')">ES</button>
+    <button id="btn-en" onclick="setLang('en')">EN</button>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="flag">🇻🇪</div>
+    <h1>Manos VZLA</h1>
+    <p class="tagline" lang="es">Mapa colaborativo de necesidades. Cualquiera reporta dónde hace falta ayuda. Cualquiera la ve.</p>
+    <p class="tagline" lang="en">Live collaborative map of needs. Anyone reports where help is needed. Anyone can see it.</p>
+
+    <div class="cta-group">
+      <a href="/app" class="cta cta-primary">
+        <span lang="es">Abrir mapa</span>
+        <span lang="en">Open map</span>
+        →
+      </a>
+      <a href="#como" class="cta cta-secondary">
+        <span lang="es">Cómo funciona</span>
+        <span lang="en">How it works</span>
+      </a>
+    </div>
+
+    <div class="urgency-banner">
+      <span lang="es">🔴 Más de 900 fallecidos · 3.300+ heridos · Decenas de miles desaparecidos</span>
+      <span lang="en">🔴 920+ dead · 3,300+ injured · Tens of thousands missing</span>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section id="como">
+    <h2 lang="es">Cómo funciona</h2>
+    <h2 lang="en">How it works</h2>
+    <p lang="es">Sin registro. Sin cuentas. Tres toques, treinta segundos.</p>
+    <p lang="en">No signup. No accounts. Three taps, thirty seconds.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3 lang="es">Abre el mapa</h3>
+        <h3 lang="en">Open the map</h3>
+        <p lang="es">Verás en vivo los reportes activos cerca de tu ubicación. Funciona sin conexión también.</p>
+        <p lang="en">See active reports near you in real time. Works offline too.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3 lang="es">Toca el "+"</h3>
+        <h3 lang="en">Tap "+"</h3>
+        <p lang="es">Elige una categoría, marca el punto en el mapa, describe qué hace falta en una línea.</p>
+        <p lang="en">Pick a category, drop a pin on the map, describe what's needed in one line.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3 lang="es">Confirma o resuelve</h3>
+        <h3 lang="en">Confirm or resolve</h3>
+        <p lang="es">Cuando alguien atienda el punto, márcalo como resuelto. Los puntos viejos se eliminan solos.</p>
+        <p lang="en">When someone responds, mark it resolved. Old points expire automatically.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIAS -->
+  <section>
+    <h2 lang="es">Cinco categorías. Nada más.</h2>
+    <h2 lang="en">Five categories. Nothing more.</h2>
+    <p lang="es">Mantenerlo simple es lo que hace que funcione bajo presión.</p>
+    <p lang="en">Keeping it simple is what makes it work under pressure.</p>
+
+    <div class="cats">
+      <div class="cat" style="border-left-color: #dc2626">
+        <div class="cat-icon">🔴</div>
+        <div>
+          <div class="cat-title" lang="es">Rescate activo</div>
+          <div class="cat-title" lang="en">Active rescue</div>
+          <div class="cat-sub" lang="es">Personas atrapadas, hace falta equipo</div>
+          <div class="cat-sub" lang="en">People trapped, equipment needed</div>
+        </div>
+      </div>
+      <div class="cat" style="border-left-color: #ea580c">
+        <div class="cat-icon">🟠</div>
+        <div>
+          <div class="cat-title" lang="es">Médico</div>
+          <div class="cat-title" lang="en">Medical</div>
+          <div class="cat-sub" lang="es">Heridos, medicinas, hospital saturado</div>
+          <div class="cat-sub" lang="en">Injured, medication, overwhelmed hospital</div>
+        </div>
+      </div>
+      <div class="cat" style="border-left-color: #2563eb">
+        <div class="cat-icon">🔵</div>
+        <div>
+          <div class="cat-title" lang="es">Agua / comida</div>
+          <div class="cat-title" lang="en">Water / food</div>
+          <div class="cat-sub" lang="es">Punto sin suministros básicos</div>
+          <div class="cat-sub" lang="en">Area without basic supplies</div>
+        </div>
+      </div>
+      <div class="cat" style="border-left-color: #16a34a">
+        <div class="cat-icon">🟢</div>
+        <div>
+          <div class="cat-title" lang="es">Refugio</div>
+          <div class="cat-title" lang="en">Shelter</div>
+          <div class="cat-sub" lang="es">Espacio abierto recibiendo damnificados</div>
+          <div class="cat-sub" lang="en">Open space taking in displaced people</div>
+        </div>
+      </div>
+      <div class="cat" style="border-left-color: #404040">
+        <div class="cat-icon">⚫</div>
+        <div>
+          <div class="cat-title" lang="es">Zona de búsqueda</div>
+          <div class="cat-title" lang="en">Search zone</div>
+          <div class="cat-sub" lang="es">Familias buscando seres queridos</div>
+          <div class="cat-sub" lang="en">Families searching for loved ones</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VOLUNTARIOS -->
+  <section>
+    <div class="volunteer">
+      <h2 lang="es">¿ONG o equipo de rescate?</h2>
+      <h2 lang="en">NGO or rescue team?</h2>
+      <p lang="es" style="color: var(--text-dim); margin: 16px auto 32px; max-width: 540px;">
+        Necesitamos voluntarios verificados (Cruz Roja, Protección Civil, bomberos, ONGs) para moderar reportes falsos. Toma 30 segundos.
+      </p>
+      <p lang="en" style="color: var(--text-dim); margin: 16px auto 32px; max-width: 540px;">
+        We need verified volunteers (Red Cross, Civil Protection, fire departments, NGOs) to moderate fake reports. Takes 30 seconds.
+      </p>
+      <a href="mailto:voluntarios@manosvzla.org?subject=Quiero%20moderar" class="cta cta-primary">
+        <span lang="es">Ser moderador</span>
+        <span lang="en">Become a moderator</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p lang="es"><strong>Manos VZLA</strong> — Proyecto sin fines de lucro, código abierto, sin publicidad.</p>
+    <p lang="en"><strong>Manos VZLA</strong> — Non-profit, open source, ad-free.</p>
+    <p>
+      <a href="https://github.com/" target="_blank">GitHub</a> ·
+      <a href="mailto:hola@manosvzla.org">Contacto / Contact</a>
+    </p>
+    <p style="margin-top: 16px; font-size: 11px;">
+      <span lang="es">Esta no es una herramienta oficial del gobierno. Para emergencias inmediatas, llama al 911.</span>
+      <span lang="en">This is not an official government tool. For immediate emergencies, call 911.</span>
+    </p>
+  </footer>
+
+  <script>
+    function setLang(lang) {
+      document.body.setAttribute('data-lang', lang);
+      document.documentElement.lang = lang;
+      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+      try { localStorage.setItem('manos_lang', lang); } catch(_) {}
+    }
+    // detectar idioma del navegador o preferencia guardada
+    (() => {
+      const saved = (() => { try { return localStorage.getItem('manos_lang'); } catch(_) { return null; } })();
+      const browser = (navigator.language || 'es').slice(0, 2);
+      const initial = saved || (browser === 'en' ? 'en' : 'es');
+      setLang(initial);
+    })();
+  </script>
+</body>
+</html>
