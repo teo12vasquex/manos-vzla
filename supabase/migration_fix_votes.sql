@@ -1,28 +1,24 @@
 -- ============================================================
 -- MANOS VZLA — Fix: votos y feedback de popup
 -- Ejecutar en Supabase Dashboard > SQL Editor
--- Seguro de re-ejecutar si migration_states.sql ya se corrió
+-- Idempotente: se puede correr múltiples veces sin fallar
 -- ============================================================
 
 -- ============================================================
--- 1. Reemplazar constraint vote_type en confirmations
---    (detecta el nombre real via information_schema)
+-- 1. Reemplazar CHECK constraint de vote_type en confirmations
+--    Usa pg_constraint con contype='c' para evitar NOT NULL
 -- ============================================================
 do $$
 declare r record;
 begin
   for r in (
-    select tc.constraint_name
-    from information_schema.table_constraints tc
-    join information_schema.check_constraints cc
-      on tc.constraint_name = cc.constraint_name
-         and tc.constraint_schema = cc.constraint_schema
-    where tc.table_schema = 'public'
-      and tc.table_name   = 'confirmations'
-      and tc.constraint_type = 'CHECK'
-      and cc.check_clause like '%vote_type%'
+    select conname
+    from pg_constraint
+    where conrelid = 'public.confirmations'::regclass
+      and contype  = 'c'
+      and pg_get_constraintdef(oid) like '%vote_type%'
   ) loop
-    execute format('alter table public.confirmations drop constraint %I', r.constraint_name);
+    execute format('alter table public.confirmations drop constraint %I', r.conname);
   end loop;
 end;
 $$;
@@ -32,25 +28,20 @@ alter table public.confirmations
   check (vote_type in ('still_active', 'on_my_way', 'resolved', 'flag'));
 
 -- ============================================================
--- 2. Reemplazar constraint status en reports
---    (detecta el nombre real via information_schema)
+-- 2. Reemplazar CHECK constraint de status en reports
+--    Solo toca el que contiene 'status' (no afecta char_length)
 -- ============================================================
 do $$
 declare r record;
 begin
   for r in (
-    select tc.constraint_name
-    from information_schema.table_constraints tc
-    join information_schema.check_constraints cc
-      on tc.constraint_name = cc.constraint_name
-         and tc.constraint_schema = cc.constraint_schema
-    where tc.table_schema = 'public'
-      and tc.table_name   = 'reports'
-      and tc.constraint_type = 'CHECK'
-      and cc.check_clause like '%status%'
-      and cc.check_clause not like '%char_length%'
+    select conname
+    from pg_constraint
+    where conrelid = 'public.reports'::regclass
+      and contype  = 'c'
+      and pg_get_constraintdef(oid) like '%status%'
   ) loop
-    execute format('alter table public.reports drop constraint %I', r.constraint_name);
+    execute format('alter table public.reports drop constraint %I', r.conname);
   end loop;
 end;
 $$;
@@ -104,7 +95,7 @@ end;
 $$ language plpgsql security definer;
 
 -- ============================================================
--- 4. Recrear trigger explícitamente (por si acaso)
+-- 4. Recrear trigger explícitamente
 -- ============================================================
 drop trigger if exists trg_update_report_status on public.confirmations;
 create trigger trg_update_report_status
