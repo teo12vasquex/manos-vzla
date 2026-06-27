@@ -46,5 +46,13 @@ export default defineConfig({
       }
     })
   ],
-  build: { target: 'es2020' }
+  build: {
+    target: 'es2020',
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        app: 'app.html',
+      },
+    },
+  }
 });

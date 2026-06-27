@@ -8,11 +8,19 @@ import { queueReport, getPendingReports, removePendingReport } from './lib/offli
 // CATEGORIAS
 // ============================================================
 const CATEGORIES = {
-  rescue:   { emoji: '🔴', label: 'Rescate activo',  color: '#dc2626', short: 'Rescate'  },
-  medical:  { emoji: '🟠', label: 'Médico',           color: '#ea580c', short: 'Médico'   },
-  supplies: { emoji: '🔵', label: 'Agua / comida',    color: '#2563eb', short: 'Agua'     },
-  shelter:  { emoji: '🟢', label: 'Refugio',          color: '#16a34a', short: 'Refugio'  },
+  rescue:   { emoji: '🔴', label: 'Rescate activo',    color: '#dc2626', short: 'Rescate' },
+  medical:  { emoji: '🟠', label: 'Médico',             color: '#ea580c', short: 'Médico'  },
+  supplies: { emoji: '🔵', label: 'Agua / comida',      color: '#2563eb', short: 'Agua'    },
+  shelter:  { emoji: '🟢', label: 'Refugio',            color: '#16a34a', short: 'Refugio' },
   missing:  { emoji: '⚫', label: 'Zona desaparecidos', color: '#404040', short: 'Buscan'  }
+};
+
+const STATUS_LABELS = {
+  urgent:   'URGENTE',
+  active:   'activo',
+  en_route: 'en camino',
+  resolved: 'resuelto',
+  flagged:  'spam',
 };
 
 // Centro inicial: Yaracuy (epicentro)
@@ -24,11 +32,34 @@ const DEFAULT_ZOOM = 9;
 // ============================================================
 function makeIcon(category, status) {
   const c = CATEGORIES[category];
+
+  if (status === 'en_route') {
+    return L.divIcon({
+      className: 'manos-marker',
+      html: `<div class="marker-dot" style="background:#16a34a">
+               <span>🚶</span>
+             </div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+  }
+
+  if (status === 'resolved') {
+    return L.divIcon({
+      className: 'manos-marker',
+      html: `<div class="marker-dot marker-resolved" style="background:${c.color}">
+               <span>${c.emoji}</span>
+               <span class="marker-check">✅</span>
+             </div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+  }
+
   const pulse = status === 'urgent';
-  const opacity = status === 'resolved' ? 0.35 : 1;
   return L.divIcon({
     className: 'manos-marker',
-    html: `<div class="marker-dot ${pulse ? 'pulse' : ''}" style="background:${c.color};opacity:${opacity}">
+    html: `<div class="marker-dot ${pulse ? 'pulse' : ''}" style="background:${c.color}">
              <span>${c.emoji}</span>
            </div>`,
     iconSize: [40, 40],
@@ -168,30 +199,39 @@ function ReportPopup({ report, onConfirm }) {
   const c = CATEGORIES[report.category];
   const minutesAgo = Math.floor((Date.now() - new Date(report.created_at).getTime()) / 60000);
   const timeLabel = minutesAgo < 60 ? `hace ${minutesAgo}m` : `hace ${Math.floor(minutesAgo / 60)}h`;
+  const isResolved = report.status === 'resolved';
+
   return (
     <div className="popup-content">
       <div className="popup-header" style={{ borderLeft: `4px solid ${c.color}` }}>
         <strong>{c.label}</strong>
-        <span className={`status-pill status-${report.status}`}>{report.status === 'urgent' ? 'URGENTE' : report.status === 'active' ? 'activo' : 'resuelto'}</span>
+        <span className={`status-pill status-${report.status}`}>
+          {STATUS_LABELS[report.status] || report.status}
+        </span>
       </div>
       <p className="popup-desc">{report.description}</p>
       <div className="popup-meta">
         {report.nickname || 'Anónimo'} · {timeLabel}
         {report.confirmations > 0 && ` · ${report.confirmations} confirmaciones`}
       </div>
-      {report.status !== 'resolved' && (
-        <div className="popup-actions">
-          <button className="vote-btn vote-active" onClick={() => onConfirm(report.id, 'still_active')}>
-            Sigue activo
-          </button>
-          <button className="vote-btn vote-resolved" onClick={() => onConfirm(report.id, 'resolved')}>
-            Resuelto
-          </button>
-          <button className="vote-btn vote-flag" onClick={() => onConfirm(report.id, 'flag')} title="Reportar como spam">
-            🚩
-          </button>
-        </div>
-      )}
+      <div className="popup-actions">
+        {!isResolved && (
+          <>
+            <button className="vote-btn vote-onway" onClick={() => onConfirm(report.id, 'on_my_way')}>
+              Voy en camino
+            </button>
+            <button className="vote-btn vote-active" onClick={() => onConfirm(report.id, 'still_active')}>
+              Sigue activo
+            </button>
+            <button className="vote-btn vote-resolved" onClick={() => onConfirm(report.id, 'resolved')}>
+              Ya fue atendido
+            </button>
+          </>
+        )}
+        <button className="vote-btn vote-flag" onClick={() => onConfirm(report.id, 'flag')} title="Reportar como spam">
+          🚩 Spam
+        </button>
+      </div>
     </div>
   );
 }
@@ -214,7 +254,7 @@ export default function App() {
     const { data, error } = await supabase
       .from('reports')
       .select('*')
-      .in('status', ['urgent', 'active', 'resolved'])
+      .in('status', ['urgent', 'active', 'en_route', 'resolved'])
       .order('created_at', { ascending: false })
       .limit(500);
     if (!error && data) setReports(data);
@@ -305,16 +345,19 @@ export default function App() {
 
   // ----- filtrar -----
   const visibleReports = useMemo(() => {
+    if (filter === 'resolved') return reports.filter((r) => r.status === 'resolved');
     if (filter === 'all') return reports;
     return reports.filter((r) => r.category === filter);
   }, [reports, filter]);
 
-  // ----- contador por categoria -----
+  // ----- contadores -----
   const counts = useMemo(() => {
-    const acc = { all: 0 };
+    const acc = { all: 0, resolved: 0 };
     Object.keys(CATEGORIES).forEach((k) => { acc[k] = 0; });
     reports.forEach((r) => {
-      if (r.status !== 'resolved') {
+      if (r.status === 'resolved') {
+        acc.resolved++;
+      } else {
         acc.all++;
         if (acc[r.category] !== undefined) acc[r.category]++;
       }
@@ -355,6 +398,12 @@ export default function App() {
             {c.emoji} {c.short} <span className="chip-count">{counts[key]}</span>
           </button>
         ))}
+        <button
+          className={`filter-chip filter-chip-resolved ${filter === 'resolved' ? 'active' : ''}`}
+          onClick={() => setFilter('resolved')}
+        >
+          ✅ Atendidos <span className="chip-count chip-count-green">{counts.resolved}</span>
+        </button>
       </div>
 
       {/* Mapa */}
