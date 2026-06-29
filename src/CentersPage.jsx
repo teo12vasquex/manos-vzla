@@ -87,7 +87,9 @@ function RegisterModal({ onClose, onSuccess }) {
     if (!form.address.trim()) return alert('La dirección es requerida.');
     if (!latlng) return alert('Marca la ubicación del centro en el mapa o usa tu ubicación.');
     setSubmitting(true);
-    const { data, error } = await supabase.from('centers').insert([{
+    const editToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    const { error } = await supabase.from('centers').insert([{
       name: form.name.trim(),
       address: form.address.trim(),
       city: form.city,
@@ -95,11 +97,11 @@ function RegisterModal({ onClose, onSuccess }) {
       instagram: form.instagram.trim() || null,
       lat: latlng.lat,
       lng: latlng.lng,
-      location: `POINT(${latlng.lng} ${latlng.lat})`,
-    }]).select('edit_token').single();
+      edit_token: editToken,
+    }]);
     setSubmitting(false);
     if (error) return alert('Error al registrar: ' + error.message);
-    setToken(data.edit_token);
+    setToken(editToken);
   };
 
   if (token) return (
