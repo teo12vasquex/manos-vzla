@@ -24,6 +24,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        navigateFallback: '/app/index.html',
+        navigateFallbackAllowlist: [/^\/app/, /^\/centros/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i,
