@@ -376,3 +376,73 @@ textarea { resize: vertical; min-height: 80px; }
   .modal-backdrop { align-items: center; }
   .modal { border-radius: 16px; }
 }
+
+/* ============================================================
+   CENTROS DE ACOPIO
+   ============================================================ */
+.center-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #d4af37;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.supply-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.supply-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 1px solid;
+  text-align: center;
+}
+
+.supply-emoji { font-size: 16px; }
+.supply-label { font-size: 11px; color: var(--text-dim); }
+.supply-status { font-size: 10px; font-weight: 700; }
+
+.btn-back {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.fab-small {
+  background: var(--accent);
+  color: #0a0a0a;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.token-box {
+  background: #0a0a0a;
+  border: 1px solid #d4af37;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #d4af37;
+  word-break: break-all;
+}
